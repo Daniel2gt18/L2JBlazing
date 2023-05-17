@@ -1,0 +1,10 @@
+(?iu)\b(fail)\b
+(?iu)\b(FAIL)\b
+(?iu)\b(F AIL)\b
+(?iu)\b(falido)\b
+(?iu)\b(lixo)\b
+(?iu)\b(LIXO)\b
+(?iu)\b(BURRO)\b
+(?iu)\b(burro)\b
+(?iu)\b(FALIDO)\b
+

@@ -1,0 +1,865 @@
+package phantom;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.LineNumberReader;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.logging.Logger;
+
+import com.l2jmega.commons.concurrent.ThreadPool;
+import com.l2jmega.commons.random.Rnd;
+
+import com.l2jmega.Config;
+import com.l2jmega.gameserver.data.CharTemplateTable;
+import com.l2jmega.gameserver.data.ItemTable;
+import com.l2jmega.gameserver.data.PlayerNameTable;
+import com.l2jmega.gameserver.data.SkillTable;
+import com.l2jmega.gameserver.data.sql.ClanTable;
+import com.l2jmega.gameserver.idfactory.IdFactory;
+import com.l2jmega.gameserver.model.L2Augmentation;
+import com.l2jmega.gameserver.model.L2Skill;
+import com.l2jmega.gameserver.model.World;
+import com.l2jmega.gameserver.model.actor.appearance.PcAppearance;
+import com.l2jmega.gameserver.model.actor.instance.Player;
+import com.l2jmega.gameserver.model.actor.template.PlayerTemplate;
+import com.l2jmega.gameserver.model.base.ClassRace;
+import com.l2jmega.gameserver.model.base.Experience;
+import com.l2jmega.gameserver.model.base.Sex;
+import com.l2jmega.gameserver.model.item.instance.ItemInstance;
+import com.l2jmega.gameserver.model.location.Location;
+import com.l2jmega.gameserver.network.L2GameClient;
+import com.l2jmega.gameserver.network.L2GameClient.GameClientState;
+
+
+public class Phantom_Town
+{
+	
+	static final Logger _log = Logger.getLogger(Phantom_Town.class.getName());
+	static int _PhantomsCount = 0;
+	static int _PhantomsLimit = 0;
+	static int _setsCount = 0;
+	static ArrayList<L2Set> _sets = new ArrayList<>();
+	static Phantom_Town _instance;
+	static int _locsCount = 0;
+	static ArrayList<Location> _PhantomsTownLoc = new ArrayList<>();
+	
+	public static int _zone_1_locsCount = 0;
+	public static ArrayList<Location> _zone_1_Loc = new ArrayList<>();
+	
+	public static Phantom_Town getInstance()
+	{
+		return _instance;
+	}
+	
+	private void load()
+	{
+		parceArmors();
+		cacheFantoms();
+		parceTownLocs();
+		LocsZone1();
+
+	}
+	
+	@SuppressWarnings("resource")
+	private static void LocsZone1()
+	{
+		_zone_1_Loc.clear();
+		LineNumberReader localLineNumberReader = null;
+		BufferedReader localBufferedReader = null;
+		FileReader localFileReader = null;
+		try
+		{
+			File localFile = new File("./config/custom/phantom/town_locs_to_npcs.ini");
+			if (!localFile.exists())
+			{
+				return;
+			}
+			localFileReader = new FileReader(localFile);
+			localBufferedReader = new BufferedReader(localFileReader);
+			localLineNumberReader = new LineNumberReader(localBufferedReader);
+			String str;
+			while ((str = localLineNumberReader.readLine()) != null)
+			{
+				if ((str.trim().length() != 0) && (!str.startsWith("#")))
+				{
+					String[] arrayOfString = str.split(",");
+					_zone_1_Loc.add(new Location(Integer.parseInt(arrayOfString[0]), Integer.parseInt(arrayOfString[1]), Integer.parseInt(arrayOfString[2])));
+				}
+			}
+			_zone_1_locsCount = _zone_1_Loc.size() - 1;
+			return;
+		}
+		catch (Exception localException2)
+		{
+			localException2.printStackTrace();
+		}
+		finally
+		{
+			try
+			{
+				if (localFileReader != null)
+				{
+					localFileReader.close();
+				}
+				if (localBufferedReader != null)
+				{
+					localBufferedReader.close();
+				}
+				if (localLineNumberReader != null)
+				{
+					localLineNumberReader.close();
+				}
+			}
+			catch (Exception localException5)
+			{
+			}
+		}
+	}
+	
+	@SuppressWarnings("resource")
+	private static void parceTownLocs()
+	{
+		_PhantomsTownLoc.clear();
+		LineNumberReader localLineNumberReader = null;
+		BufferedReader localBufferedReader = null;
+		FileReader localFileReader = null;
+		try
+		{
+			File localFile = new File("./config/custom/phantom/town_locs.ini");
+			if (!localFile.exists())
+			{
+				return;
+			}
+			localFileReader = new FileReader(localFile);
+			localBufferedReader = new BufferedReader(localFileReader);
+			localLineNumberReader = new LineNumberReader(localBufferedReader);
+			String str;
+			while ((str = localLineNumberReader.readLine()) != null)
+			{
+				if ((str.trim().length() != 0) && (!str.startsWith("#")))
+				{
+					String[] arrayOfString = str.split(",");
+					_PhantomsTownLoc.add(new Location(Integer.parseInt(arrayOfString[0]), Integer.parseInt(arrayOfString[1]), Integer.parseInt(arrayOfString[2])));
+				}
+			}
+			_locsCount = _PhantomsTownLoc.size() - 1;
+			return;
+		}
+		catch (Exception localException2)
+		{
+			localException2.printStackTrace();
+		}
+		finally
+		{
+			try
+			{
+				if (localFileReader != null)
+				{
+					localFileReader.close();
+				}
+				if (localBufferedReader != null)
+				{
+					localBufferedReader.close();
+				}
+				if (localLineNumberReader != null)
+				{
+					localLineNumberReader.close();
+				}
+			}
+			catch (Exception localException5)
+			{
+			}
+		}
+	}
+	
+	public void reload()
+	{
+		parceArmors();
+	}
+	
+	public static void init()
+	{
+		_instance = new Phantom_Town();
+		_instance.load();
+	}
+	
+	static int getFaceEquipe()
+	{
+		return Config.LIST_PHANTOM_FACE.get(Rnd.get(Config.LIST_PHANTOM_FACE.size()));
+	}
+	
+	static int getHairEquipe()
+	{
+		return Config.LIST_PHANTOM_HAIR.get(Rnd.get(Config.LIST_PHANTOM_HAIR.size()));
+	}
+
+	
+	static String getNameColor()
+	{
+		return Config.PHANTOM_PLAYERS_NAME_CLOLORS.get(Rnd.get(Config.PHANTOM_PLAYERS_NAME_CLOLORS.size()));
+	}
+	
+	static String getTitleColor()
+	{
+		return Config.PHANTOM_PLAYERS_TITLE_CLOLORS.get(Rnd.get(Config.PHANTOM_PLAYERS_TITLE_CLOLORS.size()));
+	}
+	
+	@SuppressWarnings("resource")
+	private static void parceArmors()
+	{
+		if (!_sets.isEmpty())
+		{
+			_sets.clear();
+		}
+		LineNumberReader localLineNumberReader = null;
+		BufferedReader localBufferedReader = null;
+		FileReader localFileReader = null;
+		try
+		{
+			File localFile = new File("./config/custom/phantom/town_sets.ini");
+			if (!localFile.exists())
+			{
+				return;
+			}
+			localFileReader = new FileReader(localFile);
+			localBufferedReader = new BufferedReader(localFileReader);
+			localLineNumberReader = new LineNumberReader(localBufferedReader);
+			String str;
+			while ((str = localLineNumberReader.readLine()) != null)
+			{
+				if ((str.trim().length() != 0) && (!str.startsWith("#")))
+				{
+					String[] arrayOfString = str.split(",");
+					_sets.add(new L2Set(Integer.parseInt(arrayOfString[0]), Integer.parseInt(arrayOfString[1]), Integer.parseInt(arrayOfString[2]), Integer.parseInt(arrayOfString[3]), Integer.parseInt(arrayOfString[4]), Integer.parseInt(arrayOfString[5]), Integer.parseInt(arrayOfString[6])));
+				}
+			}
+			_setsCount = _sets.size();
+			return;
+		}
+		catch (Exception localException2)
+		{
+			localException2.printStackTrace();
+		}
+		finally
+		{
+			try
+			{
+				if (localFileReader != null)
+				{
+					localFileReader.close();
+				}
+				if (localBufferedReader != null)
+				{
+					localBufferedReader.close();
+				}
+				if (localLineNumberReader != null)
+				{
+					localLineNumberReader.close();
+				}
+			}
+			catch (Exception localException6)
+			{
+			}
+		}
+	}
+	
+	private void cacheFantoms()
+	{
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				ThreadPool.schedule(new FantomTask(1), Rnd.get(3000, 13000));
+			}
+		}).start();
+	}
+	
+	static L2Set getRandomSet()
+	{
+		return _sets.get(Rnd.get(_setsCount));
+	}
+	
+	static class L2Set
+	{
+		public int _body;
+		public int _gaiters;
+		public int _gloves;
+		public int _boots;
+		public int _weapon;
+		public int _custom;
+		public int _grade;
+		
+		L2Set(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7)
+		{
+			_body = paramInt1;
+			_gaiters = paramInt2;
+			_gloves = paramInt3;
+			_boots = paramInt4;
+			_weapon = paramInt5;
+			_grade = paramInt6;
+			_custom = paramInt7;
+		}
+	}
+	
+	public static ArrayList<Player> _add_phantom = new ArrayList<>();
+	
+	public static int getPhantomCount()
+	{
+		if (_add_phantom != null)
+			return _add_phantom.size();
+		
+		return 0;
+	}
+	
+	public static void removePhantom(Player spec)
+	{
+		if (_add_phantom != null && _add_phantom.contains(spec))
+			_add_phantom.remove(spec);
+	}
+	
+	static class L2Fantome
+	{
+		public String name;
+		public String title;
+		public int x;
+		public int y;
+		public int z;
+		
+		L2Fantome(String paramString1, String paramString2, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+		{
+			this.name = paramString1;
+			this.title = paramString2;
+			this.x = paramInt1;
+			this.y = paramInt2;
+			this.z = paramInt3;
+		}
+	}
+	
+	static SimpleDateFormat sdf = new SimpleDateFormat("HH");
+	
+	public class FantomTask implements Runnable
+	{
+		public int _task;
+		
+		public FantomTask(int paramInt)
+		{
+			_task = paramInt;
+		}
+		
+		@Override
+		public void run()
+		{
+			WhileLoopExample.spawn();
+		}
+	}
+	
+	static class WhileLoopExample
+	{
+		public static void spawn()
+		{
+
+			
+			int i = Config.COUNT_TOWN;
+			
+			while (i > 0)
+			{
+				Acount_1();
+				try
+				{
+					Thread.sleep(Rnd.get(2100, 5200));
+				}
+				catch (InterruptedException e)
+				{
+				}
+				i--;
+			}
+		}
+	}
+	
+	public static PhantomOld createRandomFakePlayer()
+	{
+		int objectId = IdFactory.getInstance().getNextId();
+		String accountName = "AutoPilot";
+		String playerName = PhantomNameManager.INSTANCE.getRandomAvailableName();
+		
+		int[] classes =
+		{
+			10,25,38,49
+		};
+		
+		int classId = classes[Rnd.get(classes.length)];
+		
+		final PlayerTemplate template = CharTemplateTable.getInstance().getTemplate(classId);
+		PcAppearance app = getRandomAppearance(template.getRace());
+		PhantomOld player = new PhantomOld(objectId, template, accountName, app);
+		
+		player.setName(playerName);
+
+		player.setAccessLevel(Config.DEFAULT_ACCESS_LEVEL);
+		PlayerNameTable.getInstance().addPlayer(objectId, accountName, playerName, player.getAccessLevel().getLevel());
+		player.setBaseClass(player.getClassId());
+		setLevel(player, 81);
+		player.heal();
+		
+		return player;
+	}
+	
+	public static PcAppearance getRandomAppearance(ClassRace race)
+	{
+		
+		Sex randomSex = Rnd.get(1, 2) == 1 ? Sex.MALE : Sex.FEMALE;
+		int hairStyle = Rnd.get(0, randomSex == Sex.MALE ? 4 : 6);
+		int hairColor = Rnd.get(0, 3);
+		int faceId = Rnd.get(0, 2);
+		
+		return new PcAppearance((byte) faceId, (byte) hairColor, (byte) hairStyle, randomSex);
+	}
+	
+	public static void setLevel(PhantomOld player, int level)
+	{
+		if (level >= 1 && level <= Experience.MAX_LEVEL)
+		{
+			long pXp = player.getExp();
+			long tXp = Experience.LEVEL[81];
+			
+			if (pXp > tXp)
+				player.removeExpAndSp(pXp - tXp, 0);
+			else if (pXp < tXp)
+				player.addExpAndSp(tXp - pXp, 0);
+		}
+	}
+	
+	public static PhantomOld Acount_1()
+	{
+		L2GameClient client = new L2GameClient(null);
+		client.setDetached(true);
+		
+		PhantomOld activeChar = createRandomFakePlayer();
+		activeChar.setClient(client);
+		client.setActiveChar(activeChar);
+		activeChar.setOnlineStatus(true, false);
+		client.setState(GameClientState.IN_GAME);
+		client.setAccountName(activeChar.getAccountName());
+		World.getInstance().addPlayer(activeChar);
+		activeChar.setIsPhantom(true);
+		ItemInstance WINGS = ItemTable.getInstance().createDummyItem(getFaceEquipe());
+		ItemInstance HAIR = ItemTable.getInstance().createDummyItem(getHairEquipe());
+		
+		if (Config.ALLOW_PHANTOM_RETAIL_ARMOR)
+		{
+			if (activeChar.getClassId().getId() == 0 || activeChar.getClassId().getId() == 18 || activeChar.getClassId().getId() == 31 || activeChar.getClassId().getId() == 44)
+			{
+				ItemInstance item_1 = ItemTable.getInstance().createDummyItem(1146);
+				ItemInstance item_2 = ItemTable.getInstance().createDummyItem(1147);
+				ItemInstance item_3 = ItemTable.getInstance().createDummyItem(2369);
+				
+				activeChar.getInventory().equipItemAndRecord(item_1);
+				activeChar.getInventory().equipItemAndRecord(item_2);
+				activeChar.getInventory().equipItemAndRecord(item_3);
+			}
+			else if (activeChar.getClassId().getId() == 10 || activeChar.getClassId().getId() == 25 || activeChar.getClassId().getId() == 38)
+			{
+				ItemInstance item_1 = ItemTable.getInstance().createDummyItem(425);
+				ItemInstance item_2 = ItemTable.getInstance().createDummyItem(461);
+				ItemInstance item_3 = ItemTable.getInstance().createDummyItem(6);
+				
+				activeChar.getInventory().equipItemAndRecord(item_1);
+				activeChar.getInventory().equipItemAndRecord(item_2);
+				activeChar.getInventory().equipItemAndRecord(item_3);
+			}
+			else if (activeChar.getClassId().getId() == 49)
+			{
+				ItemInstance item_1 = ItemTable.getInstance().createDummyItem(425);
+				ItemInstance item_2 = ItemTable.getInstance().createDummyItem(461);
+				ItemInstance item_3 = ItemTable.getInstance().createDummyItem(2368);
+				
+				activeChar.getInventory().equipItemAndRecord(item_1);
+				activeChar.getInventory().equipItemAndRecord(item_2);
+				activeChar.getInventory().equipItemAndRecord(item_3);
+			}
+			else if (activeChar.getClassId().getId() == 53)
+			{
+				ItemInstance item_1 = ItemTable.getInstance().createDummyItem(1146);
+				ItemInstance item_2 = ItemTable.getInstance().createDummyItem(1147);
+				ItemInstance item_3 = ItemTable.getInstance().createDummyItem(2370);
+				
+				activeChar.getInventory().equipItemAndRecord(item_1);
+				activeChar.getInventory().equipItemAndRecord(item_2);
+				activeChar.getInventory().equipItemAndRecord(item_3);
+			}
+			
+		}else{
+		L2Set localL2Set = getRandomSet();
+		ItemInstance localL2ItemInstance1 = ItemTable.getInstance().createDummyItem(localL2Set._body);
+		ItemInstance localL2ItemInstance2 = ItemTable.getInstance().createDummyItem(localL2Set._gaiters);
+		ItemInstance localL2ItemInstance3 = ItemTable.getInstance().createDummyItem(localL2Set._gloves);
+		ItemInstance localL2ItemInstance4 = ItemTable.getInstance().createDummyItem(localL2Set._boots);
+		ItemInstance localL2ItemInstance5 = ItemTable.getInstance().createDummyItem(localL2Set._weapon);
+		ItemInstance localL2ItemInstance6 = null;
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance1);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance2);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance3);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance4);
+		
+		if (localL2Set._custom > 0)
+		{
+			localL2ItemInstance6 = ItemTable.getInstance().createDummyItem(localL2Set._custom);
+			activeChar.getInventory().equipItemAndRecord(localL2ItemInstance6);
+		}
+		
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance5);
+		
+		if (Rnd.get(100) < 30 && Config.PHANTOM_PLAYERS_ARGUMENT_ANIM)
+		{
+			localL2ItemInstance5.setAugmentation(new L2Augmentation(1067847165, 3250, 1));
+		}
+		
+		localL2ItemInstance5.setEnchantLevel(Rnd.get(Config.PHANTOM_PLAYERS_ENCHANT_MIN, Config.PHANTOM_PLAYERS_ENCHANT_MAX));
+		
+        }
+        
+		if (Config.ALLOW_PHANTOM_FACE)
+			activeChar.getInventory().equipItemAndRecord(WINGS);
+		
+		if (Config.ALLOW_PHANTOM_HAIR)
+			activeChar.getInventory().equipItemAndRecord(HAIR);
+	
+		
+		if (Config.PLAYER_SPAWN_PROTECTION > 0)
+			activeChar.setSpawnProtection(true);
+		
+		 if (Rnd.get(100) < Config.PHANTOM_PLAYERS_CREST && Config.ALLOW_PHANTOM_CREST)
+		 {
+		 activeChar.setClan(ClanTable.getInstance().getClan(getRandomClan()));
+		 activeChar.getAppearance().setNameColor(Integer.decode("0x" + getNameColor()));
+		 activeChar.getAppearance().setTitleColor(Integer.decode("0x" + getTitleColor()));
+		 }
+		 else
+		 {
+		activeChar.getAppearance().setNameColor(Integer.decode("0x" + Config.NAME_COLOR));
+		activeChar.getAppearance().setTitleColor(Integer.decode("0x" + Config.TITLE_COLOR));
+		 }
+			String playerTitle = PhantomTitleManager.INSTANCE.getRandomAvailableTitle();
+			
+		if (Config.PHANTOM_TITLE_PHANTOM_ATK)
+		{
+			if(Config.PHANTOM_TITLE_CONFIG)
+				activeChar.setTitle(getFixTitle());
+			else if (Rnd.get(100) < Config.PHANTOM_CHANCE_TITLE)
+				activeChar.setTitle(playerTitle);
+		}
+		
+		
+		if (Rnd.get(100) < Config.PHANTOM_CHANCE_SIT)
+			startSit(activeChar);
+		else
+		{
+			if (Rnd.get(100) < Config.PHANTOM_CHANCE_MALARIA)
+			{
+				L2Skill skill = SkillTable.getInstance().getInfo(4554, 4);
+				skill.getEffects(activeChar, activeChar);
+			}
+
+		}
+        if (Rnd.get(100) < Config.PHANTOM_RANDOM_WALK && Config.WALK_PHANTOM_TOWN){
+        	startWalk(activeChar);
+			try
+			{
+				Thread.sleep(3000);
+			}
+			catch (InterruptedException e)
+			{
+			}
+        }
+        else if (Rnd.get(100) < Config.PHANTOM_RANDOM_WALK && Config.WALK_PHANTOM_TOWN2){
+                startWalk2(activeChar);
+				try
+				{
+					Thread.sleep(3000);
+				}
+				catch (InterruptedException e)
+				{
+				}
+          }
+		
+		activeChar.addSkill(SkillTable.getInstance().getInfo(9901, 1), true);
+		
+		if (Rnd.get(100) < Config.PHANTOM_CHANCE_MALARIA)
+		{
+			L2Skill skill = SkillTable.getInstance().getInfo(4554, 4);
+			skill.getEffects(activeChar, activeChar);
+		}
+		
+		Disconect(activeChar);
+		
+		Location localLocation = getRandomLoc();
+		
+		activeChar.spawnMe(localLocation.getX() + Rnd.get(-80, 80), localLocation.getY() + Rnd.get(-80, 80), localLocation.getZ());
+		
+		activeChar.setLastCords(activeChar.getX(), activeChar.getY(), activeChar.getZ());
+		
+		activeChar.onPlayerEnter();
+		
+		activeChar.heal();
+		
+		return activeChar;
+	}
+	
+	public static PhantomOld Acount_2()
+	{
+		L2GameClient client = new L2GameClient(null);
+		client.setDetached(true);
+		
+		PhantomOld activeChar = createRandomFakePlayer();
+		activeChar.setClient(client);
+		client.setActiveChar(activeChar);
+		activeChar.setOnlineStatus(true, false);
+		client.setState(GameClientState.IN_GAME);
+		client.setAccountName(activeChar.getAccountName());
+		World.getInstance().addPlayer(activeChar);
+		activeChar.setIsPhantom(true);
+		L2Set localL2Set = getRandomSet();
+		ItemInstance localL2ItemInstance1 = ItemTable.getInstance().createDummyItem(localL2Set._body);
+		ItemInstance localL2ItemInstance2 = ItemTable.getInstance().createDummyItem(localL2Set._gaiters);
+		ItemInstance localL2ItemInstance3 = ItemTable.getInstance().createDummyItem(localL2Set._gloves);
+		ItemInstance localL2ItemInstance4 = ItemTable.getInstance().createDummyItem(localL2Set._boots);
+		ItemInstance localL2ItemInstance5 = ItemTable.getInstance().createDummyItem(localL2Set._weapon);
+		ItemInstance localL2ItemInstance6 = null;
+		
+		ItemInstance WINGS = ItemTable.getInstance().createDummyItem(getFaceEquipe());
+		ItemInstance HAIR = ItemTable.getInstance().createDummyItem(getHairEquipe());
+		
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance1);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance2);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance3);
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance4);
+		
+		if (Config.ALLOW_PHANTOM_FACE)
+			activeChar.getInventory().equipItemAndRecord(WINGS);
+		
+		if (Config.ALLOW_PHANTOM_HAIR)
+			activeChar.getInventory().equipItemAndRecord(HAIR);
+		
+		if (localL2Set._custom > 0)
+		{
+			localL2ItemInstance6 = ItemTable.getInstance().createDummyItem(localL2Set._custom);
+			activeChar.getInventory().equipItemAndRecord(localL2ItemInstance6);
+		}
+		
+		activeChar.getInventory().equipItemAndRecord(localL2ItemInstance5);
+		
+		if (Rnd.get(100) < 30 && Config.PHANTOM_PLAYERS_ARGUMENT_ANIM)
+		{
+			localL2ItemInstance5.setAugmentation(new L2Augmentation(1067847165, 3250, 1));
+		}
+		
+		localL2ItemInstance5.setEnchantLevel(Rnd.get(Config.PHANTOM_PLAYERS_ENCHANT_MIN, Config.PHANTOM_PLAYERS_ENCHANT_MAX));
+		
+		if (Config.PLAYER_SPAWN_PROTECTION > 0)
+			activeChar.setSpawnProtection(true);
+		
+		 if (Rnd.get(100) < Config.PHANTOM_PLAYERS_CREST_ATK && Config.ALLOW_PHANTOM_CREST_ATK)
+		 {
+		 activeChar.setClan(ClanTable.getInstance().getClan(getRandomClan()));
+		 activeChar.getAppearance().setNameColor(Integer.decode("0x" + getNameColor()));
+		 activeChar.getAppearance().setTitleColor(Integer.decode("0x" + getTitleColor()));
+		 }
+		 else
+		 {
+		activeChar.getAppearance().setNameColor(Integer.decode("0x" + Config.NAME_COLOR));
+		activeChar.getAppearance().setTitleColor(Integer.decode("0x" + Config.TITLE_COLOR));
+		 }
+			String playerTitle = PhantomTitleManager.INSTANCE.getRandomAvailableTitle();
+			
+		if (Config.PHANTOM_TITLE_PHANTOM_ATK)
+		{
+			if(Config.PHANTOM_TITLE_CONFIG)
+				activeChar.setTitle(getFixTitle());
+			else if (Rnd.get(100) < Config.PHANTOM_CHANCE_TITLE)
+				activeChar.setTitle(playerTitle);
+		}
+		
+		
+		if (Rnd.get(100) < Config.PHANTOM_CHANCE_SIT)
+			startSit(activeChar);
+		else
+		{
+			if (Rnd.get(100) < Config.PHANTOM_CHANCE_MALARIA)
+			{
+				L2Skill skill = SkillTable.getInstance().getInfo(4554, 4);
+				skill.getEffects(activeChar, activeChar);
+			}
+		}
+		
+        if (Rnd.get(100) < Config.PHANTOM_RANDOM_WALK && Config.WALK_PHANTOM_TOWN){
+        	startWalk(activeChar);
+			try
+			{
+				Thread.sleep(3000);
+			}
+			catch (InterruptedException e)
+			{
+			}
+        }
+        else if (Rnd.get(100) < Config.PHANTOM_RANDOM_WALK && Config.WALK_PHANTOM_TOWN2){
+                startWalk2(activeChar);
+				try
+				{
+					Thread.sleep(3000);
+				}
+				catch (InterruptedException e)
+				{
+				}
+          }
+		
+		Disconect(activeChar);
+		
+		activeChar.addSkill(SkillTable.getInstance().getInfo(9900, 1), false);
+		
+		Location localLocation = getRandomLoc();
+		activeChar.spawnMe(localLocation.getX() + Rnd.get(-80, 80), localLocation.getY() + Rnd.get(-80, 80), localLocation.getZ());
+		
+		activeChar.setLastCords(activeChar.getX(), activeChar.getY(), activeChar.getZ());
+		
+		activeChar.onPlayerEnter();
+		
+		activeChar.heal();
+	
+		return activeChar;
+	}
+	
+	public static int getRandomClan()
+	{
+		return Config.LIST_CLAN_ID.get(Rnd.get(Config.LIST_CLAN_ID.size()));
+	}
+	
+	static String getFixTitle()
+	{
+		return Config.PHANTOM_TITLE.get(Rnd.get(Config.PHANTOM_TITLE.size()));
+	}
+	
+	@SuppressWarnings("null")
+	static Location getRandomLoc()
+	{
+		Location loc = null;
+		if (loc == null)
+			loc = _PhantomsTownLoc.get(Rnd.get(0, _locsCount));
+		return loc;
+	}
+	
+	public static void startSit(Player paramPlayer)
+	{
+		ThreadPool.schedule(new PhantomSit(paramPlayer), Rnd.get(10000, 15000));
+	}
+	
+	static class PhantomSit implements Runnable
+	{
+		Player _phantom;
+		
+		public PhantomSit(Player paramPlayer)
+		{
+			_phantom = paramPlayer;
+		}
+		
+		@Override
+		public void run()
+		{
+			if (!_phantom.isDead())
+				_phantom.sitDown();
+		}
+	}
+	
+	public static void startWalk(Player paramPlayer)
+	{
+		ThreadPool.schedule(new PhantomWalk(paramPlayer), Rnd.get(5200, 48540));
+	}
+	
+	public static void startWalk2(Player paramPlayer)
+	{
+		ThreadPool.schedule(new PhantomWalk2(paramPlayer), Rnd.get(5200, 48540));
+	}
+	
+	public static void Disconect(Player paramPlayer)
+	{
+		ThreadPool.schedule(new PhantomDelete(paramPlayer), Config.DISCONNETC_DELAY*1000);
+	}
+	
+	static class PhantomDelete implements Runnable
+	{
+		Player _phantom;
+		
+		public PhantomDelete(Player paramPlayer)
+		{
+			_phantom = paramPlayer;
+		}
+		
+		@Override
+		public void run()
+		{
+			if (_phantom.isPhantom())
+			{
+				final L2GameClient client = _phantom.getClient();
+				// detach the client from the char so that the connection isnt closed in the deleteMe
+				_phantom.setClient(null);
+				// removing player from the world
+				_phantom.deleteMe();
+				client.setActiveChar(null);
+				client.setState(GameClientState.AUTHED);
+				
+				Acount_2();
+			}
+		}
+	}
+	
+	static class PhantomWalk implements Runnable
+	{
+		Player _phantom;
+		
+		public PhantomWalk(Player paramPlayer)
+		{
+			_phantom = paramPlayer;
+		}
+		
+		@Override
+		public void run()
+		{
+			if (!_phantom.isDead())
+			{
+				if (_phantom.isSpawnProtected())
+					_phantom.setSpawnProtection(false);
+				
+				_phantom.rndWalk();
+				
+				startWalk(_phantom);
+			}
+		}
+	}
+	
+	static class PhantomWalk2 implements Runnable
+	{
+		Player _phantom;
+		
+		public PhantomWalk2(Player paramPlayer)
+		{
+			_phantom = paramPlayer;
+		}
+		
+		@Override
+		public void run()
+		{
+			if (!_phantom.isDead())
+			{
+				if (_phantom.isSpawnProtected())
+					_phantom.setSpawnProtection(false);
+				
+				_phantom.walkToNpc();
+				
+				startWalk2(_phantom);
+			}
+		}
+	}
+	
+}
